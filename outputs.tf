@@ -2,12 +2,12 @@
 #Description : Terraform module to create public and public_private subnet with
 #              network acl, route table, Elastic IP, NAT gateway, flow log.
 output "public_subnet_id" {
-  value       = join("", aws_subnet.public.*.id)
+  value       = aws_subnet.public.*.id
   description = "The ID of the subnet."
 }
 
 output "public_subnet_cidrs" {
-  value       = join("", aws_subnet.public.*.cidr_block)
+  value       = aws_subnet.public.*.cidr_block
   description = "CIDR blocks of the created public subnets."
 }
 
@@ -17,12 +17,12 @@ output "public_subnet_cidrs_ipv6" {
 }
 
 output "private_subnet_id" {
-  value       = join("", aws_subnet.private.*.id)
+  value       = aws_subnet.private.*.id
   description = "The ID of the private subnet."
 }
 
 output "private_subnet_cidrs" {
-  value       = join("", aws_subnet.private.*.cidr_block)
+  value       = aws_subnet.private.*.cidr_block
   description = "CIDR blocks of the created private subnets."
 }
 

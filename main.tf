@@ -289,6 +289,18 @@ resource "aws_route" "private" {
   depends_on             = [aws_route_table.private]
 }
 
+#Module      : ROUTE EGRESS ONLY INTERNET GATEWAY
+#Description : Provides a resource to create a routing table entry (a route) in a VPC
+#              routing table.
+resource "aws_route" "egress" {
+  count = var.enabled && var.ipv6_enabled ? 1 : 0
+
+  route_table_id              = join("", aws_route_table.private.*.id)
+  destination_ipv6_cidr_block = "::/0"
+  egress_only_gateway_id      = join("", aws_egress_only_internet_gateway.ipv6.*.id)
+  depends_on                  = [aws_route_table.private]
+}
+
 #Module      : ROUTE TABLE ASSOCIATION PRIVATE
 #Description : Provides a resource to create an association between a subnet and routing
 #              table.
@@ -335,6 +347,20 @@ resource "aws_nat_gateway" "private" {
     module.private_labels.tags,
     {
       "Name" = format("%s%s%s-ng", module.private_labels.id, var.delimiter, count.index + 1)
+    }
+  )
+}
+
+#Module      : EGRESS ONLY INTERNET GATEWAY
+#Description : Provides a resource to create a VPC Egress only Internet Gateway for IPV6.
+resource "aws_egress_only_internet_gateway" "ipv6" {
+  count  = var.enabled && var.ipv6_enabled ? 1 : 0
+  vpc_id = var.vpc_id
+  
+  tags = merge(
+    module.private_labels.tags,
+    {
+      "Name" = format("%s%s%s-egress-ig", module.private_labels.id, var.delimiter, count.index + 1)
     }
   )
 }
