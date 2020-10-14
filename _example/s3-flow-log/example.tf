@@ -28,4 +28,14 @@ module "subnet" {
   type                = "public-private"
   igw_id              = module.vpc.ig_id
   cidr_block          = module.vpc.vpc_cidr_block
+
+  public_flow_log_enabled = true
+  traffic_type            = "ALL"
+  log_destination_type    = "s3"
+  log_destination         = 
+
+  private_flow_log_enabled = true
+  traffic_type             = "ALL"
+  log_destination_type     = "s3"
+  log_destination          = 
 }

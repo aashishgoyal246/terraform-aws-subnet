@@ -1,5 +1,5 @@
 locals {
-  public_count        = var.enabled && var.type == "public" || var.type == "public-private" ? 1 : 0
+  public_count        = var.enabled && var.type == "public" || var.type == "public-private" ? length(var.availability_zones) : 0
   private_count       = var.enabled && var.type == "public-private" ? length(var.availability_zones) : 0
   public_acl_enabled  = var.enabled && var.public_acl_enabled && var.type == "public" || var.type == "public-private" ? 1 : 0
   private_acl_enabled = var.enabled && var.private_acl_enabled && var.type == "public-private" ? 1 : 0
@@ -135,16 +135,16 @@ resource "aws_route_table" "public" {
 resource "aws_route" "public" {
   count = local.public_count
 
-  route_table_id         = join("", aws_route_table.public.*.id)
+  route_table_id         = element(aws_route_table.public.*.id, count.index)
   gateway_id             = var.igw_id
   destination_cidr_block = "0.0.0.0/0"
   depends_on             = [aws_route_table.public]
 }
 
 resource "aws_route" "public_ipv6" {
-  count = var.enabled && var.ipv6_enabled ? 1 : 0
+  count = var.enabled && var.ipv6_enabled ? local.public_count : 0
 
-  route_table_id              = join("", aws_route_table.public.*.id)
+  route_table_id              = element(aws_route_table.public.*.id, count.index)
   gateway_id                  = var.igw_id
   destination_ipv6_cidr_block = "::/0"
   depends_on                  = [aws_route_table.public]
@@ -156,8 +156,8 @@ resource "aws_route" "public_ipv6" {
 resource "aws_route_table_association" "public" {
   count = local.public_count
 
-  subnet_id      = join("", aws_subnet.public.*.id)
-  route_table_id = join("", aws_route_table.public.*.id)
+  subnet_id      = element(aws_subnet.public.*.id, count.index)
+  route_table_id = element(aws_route_table.public.*.id, count.index)
   
   depends_on = [
     aws_subnet.public,
@@ -170,13 +170,13 @@ resource "aws_route_table_association" "public" {
 #              network interface, subnet, or VPC. Logs are sent to a CloudWatch Log Group
 #              or a S3 Bucket.
 resource "aws_flow_log" "public" {
-  count = var.enabled && var.public_flow_log_enabled ? 1 : 0
+  count = var.enabled && var.public_flow_log_enabled ? local.public_count : 0
 
   traffic_type             = var.traffic_type
+  iam_role_arn             = var.iam_role_arn
   log_destination_type     = var.log_destination_type
   log_destination          = var.log_destination_arn
   subnet_id                = element(aws_subnet.public.*.id, count.index)
-  log_format               = var.log_format
   max_aggregation_interval = var.max_aggregation_interval
   tags                     = module.public_labels.tags
 }
@@ -264,7 +264,7 @@ resource "aws_network_acl" "private" {
 #Module      : ROUTE TABLE PRIVATE
 #Description : Provides a resource to create a VPC routing table.
 resource "aws_route_table" "private" {
-  count = var.enabled && var.type == "public-private" ? 1 : 0
+  count = local.private_count
 
   vpc_id = var.vpc_id
   
@@ -281,21 +281,21 @@ resource "aws_route_table" "private" {
 #Description : Provides a resource to create a routing table entry (a route) in a VPC
 #              routing table.
 resource "aws_route" "private" {
-  count = var.enabled && var.type == "public-private" ? 1 : 0
+  count = local.private_count
 
-  route_table_id         = join("", aws_route_table.private.*.id)
+  route_table_id         = element(aws_route_table.private.*.id, count.index)
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = join("", aws_nat_gateway.private.*.id)
+  nat_gateway_id         = element(aws_nat_gateway.private.*.id, count.index)
   depends_on             = [aws_route_table.private]
 }
 
 #Module      : ROUTE EGRESS ONLY INTERNET GATEWAY
 #Description : Provides a resource to create a routing table entry (a route) in a VPC
 #              routing table.
-resource "aws_route" "egress" {
-  count = var.enabled && var.ipv6_enabled ? 1 : 0
+resource "aws_route" "private_ipv6" {
+  count = var.enabled && var.ipv6_enabled ? local.private_count : 0
 
-  route_table_id              = join("", aws_route_table.private.*.id)
+  route_table_id              = element(aws_route_table.private.*.id, count.index)
   destination_ipv6_cidr_block = "::/0"
   egress_only_gateway_id      = join("", aws_egress_only_internet_gateway.ipv6.*.id)
   depends_on                  = [aws_route_table.private]
@@ -319,7 +319,7 @@ resource "aws_route_table_association" "private" {
 #Module      : EIP
 #Description : Provides an Elastic IP resource..
 resource "aws_eip" "private" {
-  count = var.enabled && var.type == "public-private" && var.nat_gateway_enabled ? 1 : 0
+  count = local.private_count
 
   vpc = true
   
@@ -338,10 +338,10 @@ resource "aws_eip" "private" {
 #Module      : NAT GATEWAY
 #Description : Provides a resource to create a VPC NAT Gateway.
 resource "aws_nat_gateway" "private" {
-  count = var.enabled && var.type == "public-private" && var.nat_gateway_enabled ? 1 : 0
+  count = local.private_count
 
-  allocation_id = join("", aws_eip.private.*.id)
-  subnet_id     = join("", aws_subnet.public.*.id)
+  allocation_id = element(aws_eip.private.*.id, count.index)
+  subnet_id     = element(aws_subnet.public.*.id, count.index)
   
   tags = merge(
     module.private_labels.tags,
@@ -370,13 +370,13 @@ resource "aws_egress_only_internet_gateway" "ipv6" {
 #              network interface, subnet, or VPC. Logs are sent to a CloudWatch Log Group
 #              or a S3 Bucket.
 resource "aws_flow_log" "private_subnet_flow_log" {
-  count = var.enabled && var.private_flow_log_enabled ? length(var.availability_zones) : 0
+  count = var.enabled && var.private_flow_log_enabled ? local.private_count : 0
 
   traffic_type             = var.traffic_type
+  iam_role_arn             = var.iam_role_arn
   log_destination_type     = var.log_destination_type
   log_destination          = var.log_destination_arn
   subnet_id                = element(aws_subnet.private.*.id, count.index)
-  log_format               = var.log_format
   max_aggregation_interval = var.max_aggregation_interval
-  tags                     = module.public_labels.tags
+  tags                     = module.private_labels.tags
 }

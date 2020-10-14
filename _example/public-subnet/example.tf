@@ -10,9 +10,8 @@ module "vpc" {
   environment = "test"
   label_order = ["environment", "application", "name"]
 
-  enabled                          = true
-  cidr_block                       = "10.10.0.0/16"
-  assign_generated_ipv6_cidr_block = true
+  enabled    = true
+  cidr_block = "10.10.0.0/16"
 }
 
 module "subnet" {
@@ -29,6 +28,4 @@ module "subnet" {
   type               = "public"
   igw_id             = module.vpc.ig_id
   cidr_block         = module.vpc.vpc_cidr_block
-  ipv6_enabled       = true
-  ipv6_cidr_block    = module.vpc.vpc_ipv6_cidr_block
 }

@@ -32,21 +32,20 @@ output "private_subnet_cidrs_ipv6" {
 }
 
 output "public_route_tables_id" {
-  value       = join("", aws_route_table.public.*.id)
+  value       = aws_route_table.public.*.id
   description = "The ID of the routing table."
 }
 
 output "private_route_tables_id" {
-  value       = join("", aws_route_table.private.*.id)
+  value       = aws_route_table.private.*.id
   description = "The ID of the routing table."
-}
-
-output "private_tags" {
-  value       = module.private_labels.tags
-  description = "A mapping of private tags to assign to the resource."
 }
 
 output "public_tags" {
   value       = module.public_labels.tags
   description = "A mapping of public tags to assign to the resource."
+}
+output "private_tags" {
+  value       = module.private_labels.tags
+  description = "A mapping of private tags to assign to the resource."
 }
